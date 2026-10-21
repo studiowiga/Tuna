@@ -5,6 +5,7 @@
 #include <vector>
 #include <cmath>
 #include <cctype>
+#include <map>
 
 namespace tuna
 {
@@ -170,5 +171,32 @@ inline const std::vector<Tuning>& factoryTunings()
         return v;
     }();
     return list;
+}
+// ---- affichage EN / FR (les clés internes restent en français) ----
+inline std::string displayName (const Tuning& t, bool french)
+{
+    if (french || t.user) return t.name;
+    static const std::map<std::string, std::string> en {
+        { "Mib standard", "Eb standard" }, { "Ré standard", "D standard" }, { "Do# standard", "C# standard" },
+        { "Do standard", "C standard" }, { "Si standard", "B standard" }, { "La# standard", "A# standard" },
+        { "La standard", "A standard" }, { "Sol standard", "G standard" }, { "Fa standard", "F standard" },
+        { "Mi standard", "E standard" }, { "Open D mineur", "Open D minor" }, { "Open G mineur", "Open G minor" },
+        { "Open E mineur", "Open E minor" }, { "Open A mineur", "Open A minor" }, { "Open C mineur", "Open C minor" },
+        { "Ténor (aigu)", "Tenor (high)" }, { "Aigu (E à C)", "High (E to C)" } };
+    const auto it = en.find (t.name);
+    return it != en.end() ? it->second : t.name;
+}
+
+inline std::string displayCategory (const std::string& cat, bool french)
+{
+    if (french) return cat;
+    static const std::map<std::string, std::string> en {
+        { "GUITARE 6 · STANDARD & BAS", "6-STRING GUITAR · STANDARD & LOW" },
+        { "GUITARE 6 · OPEN TUNINGS", "6-STRING GUITAR · OPEN TUNINGS" },
+        { "GUITARE 7 CORDES", "7-STRING GUITAR" }, { "GUITARE 8 CORDES", "8-STRING GUITAR" },
+        { "BASSE 4 CORDES", "4-STRING BASS" }, { "BASSE 5 CORDES", "5-STRING BASS" },
+        { "BASSE 6 CORDES", "6-STRING BASS" }, { "PERSO", "CUSTOM" } };
+    const auto it = en.find (cat);
+    return it != en.end() ? it->second : cat;
 }
 } // namespace tuna

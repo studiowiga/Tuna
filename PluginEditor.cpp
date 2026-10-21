@@ -58,7 +58,8 @@ static String instrumentTag (const tuna::Tuning& t)
     return "G" + String (n);
 }
 
-static String upperName (const tuna::Tuning& t) { return String::fromUTF8 (t.name.c_str()).toUpperCase(); }
+static String upperName (const tuna::Tuning& t, bool fr) { return String::fromUTF8 (tuna::displayName (t, fr).c_str()).toUpperCase(); }
+static String tr (bool fr, const char* en, const char* frUtf8) { return String::fromUTF8 (fr ? frUtf8 : en); }
 
 //==============================================================================
 // PedalKnob
@@ -90,6 +91,9 @@ void PedalKnob::paint (Graphics& g)
     g.setColour (Colours::black.withAlpha (0.55f));
     g.fillPath (bar, tr.translated (R * 0.012f + 0.5f, R * 0.018f + 0.6f));
     // l'index est plus lumineux quand il fait face à la lumière (haut-gauche)
+    // liseré sombre : l'index reste lisible même sur le reflet clair du métal
+    g.setColour (Colours::black.withAlpha (0.75f));
+    g.strokePath (bar, PathStrokeType (jmax (1.2f, w * 0.38f)), tr);
     const float facing = 0.5f + 0.5f * std::cos (angle + MathConstants<float>::pi * 0.25f);
     g.setColour (Colour::fromFloatRGBA (0.93f + 0.07f * facing, 0.94f + 0.06f * facing, 0.95f + 0.05f * facing, 1.0f));
     g.fillPath (bar, tr);
@@ -228,7 +232,7 @@ void TunaDisplay::paintHeader (Graphics& g, const tuna::Snapshot& sn, int mode, 
     g.setColour (col.withAlpha (0.6f));
     g.drawText (tag, Rectangle<float> (r.getX() + 12, r.getY(), 40, r.getHeight()), Justification::centredLeft);
     // nom
-    const String nm = upperName (t);
+    const String nm = upperName (t, ed.proc.library.french);
     float fh = 38.0f;
     while (fh > 18.0f && textWidth (ed.fonts.mono (fh), nm) > r.getWidth() - 100) fh -= 1.0f;
     g.setFont (ed.fonts.mono (fh));
@@ -363,7 +367,7 @@ void TunaDisplay::paintMono (Graphics& g, const tuna::Snapshot& sn)
         for (int i = 0; i < sn.numStrings; ++i)
             if (sn.strings[i].midi == sn.monoMidi)
             {
-                g.drawText ("CORDE " + String (sn.numStrings - i), Rectangle<float> (kSW - 248, 476, 220, 66), Justification::centredRight);
+                g.drawText (tr (ed.proc.library.french, "STRING ", "CORDE ") + String (sn.numStrings - i), Rectangle<float> (kSW - 248, 476, 220, 66), Justification::centredRight);
                 break;
             }
 }
@@ -415,8 +419,9 @@ void TunaDisplay::paintStrobe (Graphics& g, const tuna::Snapshot& sn)
 
     g.setFont (ed.fonts.mono (26.0f));
     g.setColour (tunacol::grey.withAlpha (0.7f));
-    g.drawText ("< GRAVE", Rectangle<float> (44, 530, 200, 40), Justification::centredLeft);
-    g.drawText ("AIGU >", Rectangle<float> (kSW - 244, 530, 200, 40), Justification::centredRight);
+    const bool fr = ed.proc.library.french;
+    g.drawText (tr (fr, "< FLAT", "< GRAVE"), Rectangle<float> (44, 530, 200, 40), Justification::centredLeft);
+    g.drawText (tr (fr, "SHARP >", "AIGU >"), Rectangle<float> (kSW - 244, 530, 200, 40), Justification::centredRight);
 }
 
 //==============================================================================
@@ -456,6 +461,8 @@ Rectangle<float> TuningMenu::tabRect (int t) const
     return { x, 10.0f, w[t], 42.0f };
 }
 
+Rectangle<float> TuningMenu::langRect() const { return { 236.0f, 13.0f, 56.0f, 36.0f }; }
+
 void TuningMenu::rebuild (bool scrollToSelection)
 {
     rows.clear();
@@ -464,19 +471,19 @@ void TuningMenu::rebuild (bool scrollToSelection)
     auto addItem = [&] (int i)
     {
         const auto& t = lib.get (i);
-        if (t.category != lastCat) { rows.push_back ({ 0, String::fromUTF8 (t.category.c_str()), -1 }); lastCat = t.category; }
-        rows.push_back ({ 1, String::fromUTF8 (t.name.c_str()), i });
+        if (t.category != lastCat) { rows.push_back ({ 0, String::fromUTF8 (tuna::displayCategory (t.category, lib.french).c_str()), -1 }); lastCat = t.category; }
+        rows.push_back ({ 1, String::fromUTF8 (tuna::displayName (t, lib.french).c_str()), i });
     };
     if (tab == 0) for (int i = 0; i < lib.size(); ++i) addItem (i);
     else if (tab == 1)
     {
         const auto fav = lib.favouriteIndices();
-        if (fav.empty()) rows.push_back ({ 0, String::fromUTF8 ("AUCUN FAVORI : CLIQUEZ SUR L'ÉTOILE D'UN ACCORDAGE"), -1 });
+        if (fav.empty()) rows.push_back ({ 0, tr (lib.french, "NO FAVORITES YET: CLICK THE STAR OF A TUNING", "AUCUN FAVORI : CLIQUEZ SUR L'ÉTOILE D'UN ACCORDAGE"), -1 });
         for (int i : fav) addItem (i);
     }
     else
     {
-        rows.push_back ({ 2, String::fromUTF8 ("+  NOUVEL ACCORDAGE (COPIE DE L'ACTUEL)"), -1 });
+        rows.push_back ({ 2, tr (lib.french, "+  NEW TUNING (COPY OF THE CURRENT ONE)", "+  NOUVEL ACCORDAGE (COPIE DE L'ACTUEL)"), -1 });
         for (int i = 0; i < lib.size(); ++i) if (lib.isUser (i)) addItem (i);
     }
     if (scrollToSelection)
@@ -525,9 +532,20 @@ void TuningMenu::paint (Graphics& g)
 
     g.setFont (ed.fonts.mono (27.0f).withExtraKerningFactor (0.1f));
     g.setColour (tunacol::amber);
-    g.drawText ("ACCORDAGE", Rectangle<float> (22, 6, 250, 50), Justification::centredLeft);
+    g.drawText (tr (lib.french, "TUNING", "ACCORDAGE"), Rectangle<float> (22, 6, 250, 50), Justification::centredLeft);
+    // bouton de langue : affiche la langue vers laquelle on bascule
+    {
+        const auto lr = langRect();
+        g.setColour (tunacol::amber.withAlpha (hoverLang ? 0.22f : 0.08f));
+        g.fillRoundedRectangle (lr, 5.0f);
+        g.setColour (tunacol::amber.withAlpha (0.7f));
+        g.drawRoundedRectangle (lr, 5.0f, 1.5f);
+        g.setFont (ed.fonts.mono (18.0f));
+        g.setColour (tunacol::amber);
+        g.drawText (lib.french ? "EN" : "FR", lr, Justification::centred);
+    }
 
-    const char* tabNames[3] = { "TOUS", "FAVORIS", "PERSO" };
+    const String tabNames[3] = { tr (lib.french, "ALL", "TOUS"), tr (lib.french, "FAVORITES", "FAVORIS"), tr (lib.french, "CUSTOM", "PERSO") };
     for (int t = 0; t < 3; ++t)
     {
         auto r = tabRect (t).translated (-6.0f, 0.0f);
@@ -555,9 +573,9 @@ void TuningMenu::paint (Graphics& g)
         if (y + h < listTop() || y > listTop() + listHeight() + 6) { y += h; continue; }
         if (r.kind == 0)
         {
-            g.setFont (ed.fonts.mono (19.0f).withExtraKerningFactor (0.06f));
+            g.setFont (ed.fonts.mono (23.0f).withExtraKerningFactor (0.05f));
             g.setColour (Colour (0xff8a96a3));
-            g.drawText (r.text, Rectangle<float> (22, y + 10, PW - 60, 26), Justification::centredLeft, true);
+            g.drawText (r.text, Rectangle<float> (22, y + 8, PW - 60, 32), Justification::centredLeft, true);
             g.setColour (Colour (0xff8a96a3).withAlpha (0.25f));
             g.fillRect (22.0f, y + h - 6, PW - 70, 1.0f);
         }
@@ -580,12 +598,16 @@ void TuningMenu::paint (Graphics& g)
             const auto txt = isSel ? Colour (0xff14100a) : tunacol::amber;
             g.setColour (txt);
             if (isSel) g.strokePath (checkPath ({ 22, y + h * 0.5f - 6, 14, 12 }), PathStrokeType (2.5f));
-            g.setFont (ed.fonts.sans (27.0f));
-            g.drawText (String::fromUTF8 (t.name.c_str()), Rectangle<float> (46, y, 330, h), Justification::centredLeft, true);
-            g.setFont (ed.fonts.mono (20.0f));
-            g.setColour (txt.withAlpha (isSel ? 1.0f : 0.62f));
+            g.setFont (ed.fonts.sans (29.0f));
+            g.drawText (String::fromUTF8 (tuna::displayName (t, lib.french).c_str()), Rectangle<float> (46, y, 290, h), Justification::centredLeft, true);
             const float notesRight = PW - 46 - 50 - (t.user ? 46 : 0);
-            g.drawText (String (tuna::notesToString (t.notes)), Rectangle<float> (360, y, notesRight - 360, h), Justification::centredRight, true);
+            const String nts (tuna::notesToString (t.notes));
+            const float notesW = notesRight - 300.0f;
+            float nf = 24.0f;
+            while (nf > 17.0f && textWidth (ed.fonts.mono (nf), nts) > notesW) nf -= 0.5f;
+            g.setFont (ed.fonts.mono (nf));
+            g.setColour (txt.withAlpha (isSel ? 1.0f : 0.7f));
+            g.drawText (nts, Rectangle<float> (300, y, notesW, h), Justification::centredRight, false);
             // crayon (perso) + étoile (favori)
             if (t.user)
             {
@@ -617,7 +639,8 @@ void TuningMenu::mouseMove (const MouseEvent& e)
 {
     const auto p = e.position / u();
     const int r = p.y >= listTop() ? rowAt (p.y) : -1;
-    if (r != hoverRow) { hoverRow = r; repaint(); }
+    const bool hl = langRect().contains (p);
+    if (r != hoverRow || hl != hoverLang) { hoverRow = r; hoverLang = hl; repaint(); }
 }
 
 void TuningMenu::mouseDown (const MouseEvent& e)
@@ -625,6 +648,13 @@ void TuningMenu::mouseDown (const MouseEvent& e)
     const auto p = e.position / u();
     const float PW = 808.0f - 6.0f;
     draggingBar = false;
+    if (langRect().contains (p))
+    {
+        ed.proc.library.setFrench (! ed.proc.library.french);
+        rebuild (false);
+        ed.repaint();
+        return;
+    }
     for (int t = 0; t < 3; ++t)
         if (tabRect (t).translated (-6.0f, 0.0f).contains (p)) { tab = t; scroll = 0; rebuild (t == 0); return; }
     if (p.y < listTop()) return;
@@ -648,7 +678,7 @@ void TuningMenu::mouseDown (const MouseEvent& e)
     if (lib.isUser (r.index) && p.x > PW - 46 - 88 && p.x <= PW - 46 - 50) { ed.openTuningEditor (r.index); return; }
     ed.proc.selectTuning (r.index);
     ed.closeMenu();
-    ed.flash (upperName (lib.get (r.index)));
+    ed.flash (upperName (lib.get (r.index), lib.french));
 }
 
 void TuningMenu::mouseDrag (const MouseEvent& e)
@@ -685,7 +715,7 @@ bool TuningMenu::keyPressed (const KeyPress& k)
 //==============================================================================
 // TuningEditorPanel
 TuningEditorPanel::TuningEditorPanel (TunaEditor& e)
-    : ed (e), save (e, String::fromUTF8 ("ENREGISTRER")), del (e, "SUPPRIMER"), cancel (e, "ANNULER")
+    : ed (e), save (e, "SAVE"), del (e, "DELETE"), cancel (e, "CANCEL")
 {
     addAndMakeVisible (name);
     addAndMakeVisible (save); addAndMakeVisible (del); addAndMakeVisible (cancel);
@@ -716,7 +746,7 @@ TuningEditorPanel::TuningEditorPanel (TunaEditor& e)
         else idx = lib.addUser (name.getText(), notes);
         ed.proc.selectTuning (idx);
         ed.closeTuningEditor();
-        ed.flash (upperName (lib.get (idx)));
+        ed.flash (upperName (lib.get (idx), lib.french));
     };
 }
 
@@ -728,7 +758,12 @@ void TuningEditorPanel::open (int libraryIndex)
     editing = (libraryIndex >= 0 && lib.isUser (libraryIndex)) ? libraryIndex : -1;
     const auto& src = editing >= 0 ? lib.get (editing) : lib.get (ed.proc.getTuningIndex());
     notes = src.notes;
-    name.setText (editing >= 0 ? String::fromUTF8 (src.name.c_str()) : String::fromUTF8 (src.name.c_str()) + " perso", false);
+    const bool fr = lib.french;
+    name.setText (editing >= 0 ? String::fromUTF8 (src.name.c_str())
+                               : String::fromUTF8 (tuna::displayName (src, fr).c_str()) + (fr ? " perso" : " custom"), false);
+    save.text = tr (fr, "SAVE", "ENREGISTRER");
+    del.text = tr (fr, "DELETE", "SUPPRIMER");
+    cancel.text = tr (fr, "CANCEL", "ANNULER");
     del.setVisible (editing >= 0);
     resized();
     repaint();
@@ -770,14 +805,15 @@ void TuningEditorPanel::paint (Graphics& g)
 
     g.setFont (ed.fonts.mono (24.0f).withExtraKerningFactor (0.1f));
     g.setColour (tunacol::amber);
-    g.drawText (editing >= 0 ? String::fromUTF8 ("MODIFIER L'ACCORDAGE") : String ("NOUVEL ACCORDAGE"), Rectangle<float> (24, 10, 600, 50), Justification::centredLeft);
+    const bool fr = ed.proc.library.french;
+    g.drawText (editing >= 0 ? tr (fr, "EDIT TUNING", "MODIFIER L'ACCORDAGE") : tr (fr, "NEW TUNING", "NOUVEL ACCORDAGE"), Rectangle<float> (24, 10, 600, 50), Justification::centredLeft);
     g.setColour (tunacol::amber.withAlpha (0.3f));
     g.fillRect (0.0f, 60.0f, PW, 1.5f);
 
     g.setFont (ed.fonts.mono (22.0f));
     g.setColour (Colour (0xff8a96a3));
-    g.drawText ("NOM", Rectangle<float> (24, 76, 120, 50), Justification::centredLeft);
-    g.drawText ("CORDES", Rectangle<float> (24, 146, 120, 50), Justification::centredLeft);
+    g.drawText (tr (fr, "NAME", "NOM"), Rectangle<float> (24, 76, 120, 50), Justification::centredLeft);
+    g.drawText (tr (fr, "STRINGS", "CORDES"), Rectangle<float> (24, 146, 120, 50), Justification::centredLeft);
 
     auto btn = [&] (Rectangle<float> r, const String& t)
     {
@@ -796,7 +832,7 @@ void TuningEditorPanel::paint (Graphics& g)
     btn ({ 280, 148, 52, 46 }, "+");
     g.setFont (ed.fonts.mono (18.0f));
     g.setColour (Colour (0xff8a96a3));
-    g.drawText (String::fromUTF8 ("« » = OCTAVE   - + = DEMI-TON"), Rectangle<float> (360, 146, 420, 50), Justification::centredRight);
+    g.drawText (tr (fr, "« » = OCTAVE   - + = SEMITONE", "« » = OCTAVE   - + = DEMI-TON"), Rectangle<float> (360, 146, 420, 50), Justification::centredRight);
 
     const int n = (int) notes.size();
     const int ref = (int) ed.proc.apvts.getRawParameterValue ("ref")->load();
@@ -808,7 +844,7 @@ void TuningEditorPanel::paint (Graphics& g)
         g.fillRoundedRectangle (r, 5.0f);
         g.setFont (ed.fonts.mono (21.0f));
         g.setColour (Colour (0xff8a96a3));
-        g.drawText ("CORDE " + String (i + 1), Rectangle<float> (r.getX() + 14, r.getY(), 150, r.getHeight()), Justification::centredLeft);
+        g.drawText (tr (fr, "STRING ", "CORDE ") + String (i + 1), Rectangle<float> (r.getX() + 14, r.getY(), 150, r.getHeight()), Justification::centredLeft);
         const float bh = jmin (44.0f, r.getHeight() - 4.0f), by = r.getCentreY() - bh * 0.5f;
         btn ({ 196, by, 56, bh }, String::fromUTF8 ("«"));
         btn ({ 260, by, 56, bh }, "-");
@@ -890,7 +926,7 @@ TunaEditor::TunaEditor (TunaProcessor& p)
         proc.stepTuning (d);
         tuningAngle += d * MathConstants<float>::pi / 10.0f;
         updateKnobAngles();
-        flash (upperName (proc.library.get (proc.getTuningIndex())));
+        flash (upperName (proc.library.get (proc.getTuningIndex()), proc.library.french));
         if (menu.isVisible()) menu.rebuild (true);
     };
     tuningKnob.stepPixels = 16.0f;

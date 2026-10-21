@@ -78,6 +78,10 @@ public:
 
     void reload() { user.clear(); favourites.clear(); load(); }
 
+    // langue des menus de l'écran (anglais par défaut), commune à toutes les instances
+    bool french = false;
+    void setFrench (bool f) { french = f; save(); }
+
     static juce::File file()
     {
         return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
@@ -103,6 +107,7 @@ private:
     {
         auto xml = juce::XmlDocument::parse (file());
         if (xml == nullptr) return;
+        french = xml->getStringAttribute ("lang", "en") == "fr";
         for (auto* e : xml->getChildWithTagNameIterator ("tuning"))
         {
             tuna::Tuning t;
@@ -119,6 +124,7 @@ private:
     void save() const
     {
         juce::XmlElement root ("TunaLibrary");
+        root.setAttribute ("lang", french ? "fr" : "en");
         for (auto& t : user)
         {
             auto* e = root.createNewChildElement ("tuning");

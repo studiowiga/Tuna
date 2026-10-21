@@ -22,7 +22,7 @@ Le job *Test du moteur d'accordage* compile `dsp_test.cpp` et vérifie la préci
 | **MODE** | MONO → POLY → STROBE (clic = mode suivant, ou tourner). LED au-dessus = mode actif |
 | **TUNING** | tourner = accordage suivant / précédent (comme les flèches ◄ ►) · clic = ouvre le menu des accordages |
 | **REF** | La de référence 430 → 450 Hz · double-clic = 440 Hz |
-| Écran : nom de l'accordage | clic = menu déroulant (TOUS / ★ FAVORIS / ✎ PERSO). Passe au **vert** quand toutes les cordes sont justes |
+| Écran : nom de l'accordage | clic = menu déroulant (ALL / ★ FAVORITES / ✎ CUSTOM), en anglais par défaut ; le petit bouton **FR** de l'en-tête du menu passe les menus de l'écran en français (**EN** pour revenir), choix mémorisé pour toutes les instances. Le nom passe au **vert** quand toutes les cordes sont justes |
 | Écran : nom du mode | clic = mode suivant |
 | Footswitch **TUNE / MUTE** | coupe la sortie (LED rouge). L'accordeur fonctionne toujours, coupé ou non |
 

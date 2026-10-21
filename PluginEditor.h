@@ -15,9 +15,9 @@ constexpr Circle tuningKnob { 817.9f, 1263.8f, 100.3f };
 constexpr Circle refKnob    { 1176.0f, 1261.0f, 68.8f };
 constexpr Circle arrowLeft  { 663.2f, 1265.3f, 30.0f };
 constexpr Circle arrowRight { 966.9f, 1265.3f, 30.0f };
-constexpr Circle ledMono    { 644.6f, 1096.2f, 15.0f };
-constexpr Circle ledPoly    { 819.3f, 1096.2f, 15.0f };
-constexpr Circle ledStrobe  { 995.5f, 1096.2f, 15.0f };
+constexpr Circle ledMono    { 644.6f, 1106.2f, 15.0f };
+constexpr Circle ledPoly    { 819.3f, 1106.2f, 15.0f };
+constexpr Circle ledStrobe  { 995.5f, 1106.2f, 15.0f };
 constexpr Circle ledMute    { 819.3f, 1523.1f, 15.0f };
 constexpr Circle footswitch { 813.6f, 1695.0f, 87.4f };
 constexpr float  footCap = 53.0f;
@@ -137,18 +137,20 @@ public:
 private:
     struct Row { int kind; juce::String text; int index; };   // kind 0 = catégorie, 1 = accordage, 2 = "nouvel accordage"
     float u() const;              // pixels par unité "écran"
-    float rowH (const Row& r) const { return r.kind == 0 ? 46.0f : 50.0f; }
+    float rowH (const Row& r) const { return r.kind == 0 ? 50.0f : 54.0f; }
     float contentHeight() const;
     float listTop() const { return 64.0f; }
     float listHeight() const;
     int rowAt (float yUnits) const;
     juce::Rectangle<float> tabRect (int t) const;
+    juce::Rectangle<float> langRect() const;
     void clampScroll();
 
     TunaEditor& ed;
     std::vector<Row> rows;
     float scroll = 0;
     int hoverRow = -1;
+    bool hoverLang = false;
     bool draggingBar = false;
     float dragStartY = 0, dragStartScroll = 0;
 };
@@ -204,7 +206,9 @@ public:
 
 private:
     void timerCallback() override;
+public:
     void updateKnobAngles();
+private:
     void paintLed (juce::Graphics&, const art::Circle&, juce::Colour, bool on) const;
     juce::Rectangle<int> scaled (juce::Rectangle<float> r) const;
     juce::Rectangle<int> scaled (const art::Circle& c, float rMul = 1.0f) const;
