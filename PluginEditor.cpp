@@ -84,7 +84,7 @@ void PedalKnob::paint (Graphics& g)
     g.drawLine (Line<float> (c.translated (-0.6f, -0.6f), at (R * barR0).translated (-0.6f, -0.6f)), thin * 0.6f);
 
     // index peint en blanc
-    const float w = jmax (2.0f, R * 0.075f);
+    const float w = jmax (2.6f, R * 0.095f);
     Path bar;
     bar.addRoundedRectangle (-w * 0.5f, -R * barR1, w, R * (barR1 - barR0), w * 0.45f);
     const auto tr = AffineTransform::rotation (angle).translated (c);
@@ -92,10 +92,13 @@ void PedalKnob::paint (Graphics& g)
     g.fillPath (bar, tr.translated (R * 0.012f + 0.5f, R * 0.018f + 0.6f));
     // l'index est plus lumineux quand il fait face à la lumière (haut-gauche)
     // liseré sombre : l'index reste lisible même sur le reflet clair du métal
-    g.setColour (Colours::black.withAlpha (0.75f));
-    g.strokePath (bar, PathStrokeType (jmax (1.2f, w * 0.38f)), tr);
+    // liseré sombre large + halo : l'index reste lisible même sur le reflet clair du métal
+    g.setColour (Colours::black.withAlpha (0.35f));
+    g.strokePath (bar, PathStrokeType (jmax (2.4f, w * 1.1f)), tr);
+    g.setColour (Colours::black.withAlpha (0.9f));
+    g.strokePath (bar, PathStrokeType (jmax (1.4f, w * 0.5f)), tr);
     const float facing = 0.5f + 0.5f * std::cos (angle + MathConstants<float>::pi * 0.25f);
-    g.setColour (Colour::fromFloatRGBA (0.93f + 0.07f * facing, 0.94f + 0.06f * facing, 0.95f + 0.05f * facing, 1.0f));
+    g.setColour (Colours::white);
     g.fillPath (bar, tr);
     g.setColour (Colours::white.withAlpha (0.35f * facing));
     g.strokePath (bar, PathStrokeType (jmax (0.6f, w * 0.12f)), tr.translated (-0.3f, -0.3f));
