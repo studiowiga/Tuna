@@ -1,0 +1,61 @@
+name: Build Tuna VST3 (Windows + macOS)
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  dsp-test:
+    name: Test du moteur d'accordage (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Compile + run
+        run: |
+          g++ -O2 -std=c++17 -I. dsp_test.cpp -o dsp_test
+          ./dsp_test
+
+  windows:
+    name: VST3 Windows x64
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v5
+      - name: Configure
+        run: cmake -B build -G "Visual Studio 17 2022" -A x64
+      - name: Build
+        run: cmake --build build --config Release --parallel
+      - name: Upload VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tuna-VST3-Windows
+          path: build/Tuna_artefacts/Release/VST3/
+
+  macos:
+    name: VST3 macOS (universel)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v5
+      - name: Configure
+        run: cmake -B build -G Xcode
+      - name: Build (arm64 + x86_64)
+        run: cmake --build build --config Release --parallel -- -quiet
+      - name: Ad-hoc sign + notice
+        run: |
+          cd build/Tuna_artefacts/Release/VST3
+          codesign --force --deep --sign - Tuna.vst3
+          lipo -info Tuna.vst3/Contents/MacOS/Tuna
+          cat > "INSTALL macOS.txt" <<'TXT'
+          1. Copy Tuna.vst3 to  ~/Library/Audio/Plug-Ins/VST3/   (or /Library/Audio/Plug-Ins/VST3/)
+          2. Open Terminal and run once:
+                xattr -cr ~/Library/Audio/Plug-Ins/VST3/Tuna.vst3
+             (removes the "downloaded from the internet" quarantine flag)
+          3. Re-scan plug-ins in Reaper (Options > Preferences > Plug-ins > VST > Re-scan).
+          TXT
+      - name: Upload VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tuna-VST3-macOS
+          path: |
+            build/Tuna_artefacts/Release/VST3/Tuna.vst3
+            build/Tuna_artefacts/Release/VST3/INSTALL macOS.txt
