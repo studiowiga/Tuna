@@ -6,12 +6,12 @@ précis jusqu'aux accordages très graves (G#0, F0, E0 et même D0 ≈ 18 Hz).
 
 ## Compiler avec GitHub
 1. Mets **tous les fichiers à la racine du dépôt** (avec le dossier `.github/workflows`).
-2. Un push lance l'onglet **Actions** → workflow *Build CHROMA VST3 (Windows + macOS)*.
+2. Un push lance l'onglet **Actions** → workflow *Build Chroma VST3 (Windows + macOS)*.
 3. À la fin, télécharge les artefacts :
-   - `CHROMA-VST3-Windows` → copie `CHROMA.vst3` dans `C:\Program Files\Common Files\VST3\`
-   - `CHROMA-VST3-macOS` → copie `CHROMA.vst3` dans `~/Library/Audio/Plug-Ins/VST3/` puis lance une fois
-     `xattr -cr ~/Library/Audio/Plug-Ins/VST3/CHROMA.vst3`
-4. Dans Reaper : re-scanne les plug-ins. Le plugin apparaît comme **CHROMA (Studio Wiga)**.
+   - `Chroma-VST3-Windows` → copie `Chroma.vst3` dans `C:\Program Files\Common Files\VST3\`
+   - `Chroma-VST3-macOS` → copie `Chroma.vst3` dans `~/Library/Audio/Plug-Ins/VST3/` puis lance une fois
+     `xattr -cr ~/Library/Audio/Plug-Ins/VST3/Chroma.vst3`
+4. Dans Reaper : re-scanne les plug-ins. Le plugin apparaît comme **Chroma (Studio Wiga)**.
 
 Le job *Test du moteur d'accordage* compile `dsp_test.cpp` et vérifie la précision sur des cordes synthétiques
 (D0 → E6 en mono, 11 accordages en poly). S'il échoue, le build est signalé en rouge.
@@ -48,6 +48,7 @@ Le job *Test du moteur d'accordage* compile `dsp_test.cpp` et vérifie la préci
 Polices IBM Plex Mono / Sans (licence SIL OFL, `OFL-IBM-Plex.txt`).
 
 ## Versions
+- **1.1.1** — nom du plugin dans le DAW : **Chroma (Studio Wiga)** (fichier `Chroma.vst3`) ; le titre de la pédale reste CHROMA. Si vous aviez installé `CHROMA.vst3` (1.1.0), supprimez-le.
 - **1.1.0** — le plugin s'appelle désormais **CHROMA** (nouveau titre sur la pédale). **Supprimez l'ancien `Tuna.vst3`**
   (même identifiant interne, conservé pour que Reaper puisse retrouver le plugin dans les projets existants ; sinon,
   remplacez Tuna par CHROMA dans la chaîne). Les accordages perso et favoris de Tuna sont repris automatiquement. Écran redessiné seulement quand son contenu change, fond mis en cache.
