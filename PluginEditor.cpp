@@ -986,7 +986,7 @@ TunaEditor::TunaEditor (TunaProcessor& p)
     snap = proc.getSnapshot();
     updateKnobAngles();
     lastTime = Time::getMillisecondCounterHiRes() * 0.001;
-    startTimerHz (60);
+    updateTimerRate();
 }
 
 TunaEditor::~TunaEditor() { stopTimer(); }
@@ -1011,10 +1011,44 @@ Rectangle<int> TunaEditor::menuBounds() const
     return scaled (Rectangle<float> (40.0f, art::screen.getY() + 96.0f, art::W - 80.0f, 1990.0f - art::screen.getY() - 96.0f));
 }
 
+//==============================================================================
+// Anti-gel de la fenêtre (Windows) : JUCE 8 dessine par défaut avec Direct2D (carte graphique).
+// Avec certains pilotes (Intel notamment) la fenêtre du plugin cesse de se rafraîchir alors que
+// le DAW continue de tourner. Le moteur logiciel est stable partout et largement assez rapide ici.
+void TunaEditor::useSoftwareRenderer()
+{
+   #if JUCE_WINDOWS
+    if (auto* peer = getPeer())
+    {
+        int sw = peer->getAvailableRenderingEngines().indexOf ("Software Renderer");
+        if (sw < 0) sw = 0;
+        if (peer->getCurrentRenderingEngine() != sw)
+            peer->setCurrentRenderingEngine (sw);
+    }
+   #endif
+}
+
+void TunaEditor::parentHierarchyChanged()
+{
+    useSoftwareRenderer();
+}
+
+// Cadence de l'affichage : 30 i/s suffisent en MONO / POLY (le moteur publie ses mesures 25 fois
+// par seconde, les segments sont discrets). En STROBE on garde 60 i/s : à 30 i/s la bande fine
+// (période 24) semblerait s'arrêter vers ±7,5 cents et tourner à l'envers dès ±3,75 cents
+// (effet « roue de diligence »), ce qui fausserait la lecture près de la justesse.
+void TunaEditor::updateTimerRate()
+{
+    const int hz = modeIndex() == 2 ? 60 : 30;
+    if (hz != timerHz) { timerHz = hz; startTimerHz (hz); }
+}
+
 void TunaEditor::resized()
 {
     const int minW = roundToInt (tunaui::heightDefault * (double) art::W / (double) art::H);
-    if (getHeight() < tunaui::heightDefault || getWidth() < minW) { setSize (minW, tunaui::heightDefault); return; }
+    // tolérance de 2 px : avec la mise à l'échelle Windows (125 %, 150 %…) l'hôte arrondit les tailles ;
+    // sans marge, les deux se renvoient la fenêtre en boucle
+    if (getHeight() < tunaui::heightDefault - 2 || getWidth() < minW - 2) { setSize (minW, tunaui::heightDefault); return; }
     proc.uiHeight.store (getHeight());
 
     display.setBounds (scaled (art::screen));
@@ -1202,6 +1236,8 @@ void TunaEditor::timerCallback()
     lastTime = now;
     snap = proc.getSnapshot();
 
+    useSoftwareRenderer();   // au cas où la fenêtre a été recréée par l'hôte (changement d'écran, d'échelle…)
+
     // stroboscope : 1 cent = un quart de période par seconde (bande du haut)
     if (snap.monoMidi >= 0 && (snap.monoActive || snap.monoAge < 0.3f))
         display.strobePhase += dt * jlimit (-6.0f, 6.0f, snap.monoCents * 0.25f);
@@ -1212,10 +1248,13 @@ void TunaEditor::timerCallback()
     if (learn >= 0) { display.flashText = "MIDI LEARN..."; display.flashUntil = now + 0.2; }
     lastLearn = learn;
 
+    // l'écran de l'accordeur est une animation continue (aiguille, stroboscope, fondus) : redessin à chaque tic.
+    // Les potards ne se redessinent que s'ils ont bougé (updateKnobAngles), les LED que si le mode / MUTE change.
     display.repaint();
     updateKnobAngles();
 
     const int m = modeIndex();
     const bool mu = isMuted();
     if (m != lastMode || mu != lastMute) { lastMode = m; lastMute = mu; repaint(); }
+    updateTimerRate();
 }

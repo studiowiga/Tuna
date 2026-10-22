@@ -187,6 +187,7 @@ public:
     void paint (juce::Graphics&) override;
     void paintOverChildren (juce::Graphics&) override;
     void resized() override;
+    void parentHierarchyChanged() override;
     void mouseDown (const juce::MouseEvent&) override;
 
     TunaProcessor& proc;
@@ -206,6 +207,9 @@ public:
 
 private:
     void timerCallback() override;
+    void useSoftwareRenderer();
+    void updateTimerRate();
+    int timerHz = 0;              // cadence actuelle du timer de l'éditeur (30 ou 60 en STROBE)
 public:
     void updateKnobAngles();
 private:
