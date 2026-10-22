@@ -1,17 +1,17 @@
-# Tuna — Studio Wiga
+# CHROMA — Studio Wiga
 
 Accordeur **VST3** (Windows 64 bits + macOS universel Apple Silicon/Intel) pour guitare et basse, au format pédale
-(visuel « TUNA Polyphonic Tuner »). Modes **MONO**, **POLY** (toutes les cordes d'un coup) et **STROBE**,
+(visuel « CHROMA Polyphonic Tuner », anciennement Tuna). Modes **MONO**, **POLY** (toutes les cordes d'un coup) et **STROBE**,
 précis jusqu'aux accordages très graves (G#0, F0, E0 et même D0 ≈ 18 Hz).
 
 ## Compiler avec GitHub
 1. Mets **tous les fichiers à la racine du dépôt** (avec le dossier `.github/workflows`).
-2. Un push lance l'onglet **Actions** → workflow *Build Tuna VST3 (Windows + macOS)*.
+2. Un push lance l'onglet **Actions** → workflow *Build CHROMA VST3 (Windows + macOS)*.
 3. À la fin, télécharge les artefacts :
-   - `Tuna-VST3-Windows` → copie `Tuna.vst3` dans `C:\Program Files\Common Files\VST3\`
-   - `Tuna-VST3-macOS` → copie `Tuna.vst3` dans `~/Library/Audio/Plug-Ins/VST3/` puis lance une fois
-     `xattr -cr ~/Library/Audio/Plug-Ins/VST3/Tuna.vst3`
-4. Dans Reaper : re-scanne les plug-ins. Le plugin apparaît comme **Tuna (Studio Wiga)**.
+   - `CHROMA-VST3-Windows` → copie `CHROMA.vst3` dans `C:\Program Files\Common Files\VST3\`
+   - `CHROMA-VST3-macOS` → copie `CHROMA.vst3` dans `~/Library/Audio/Plug-Ins/VST3/` puis lance une fois
+     `xattr -cr ~/Library/Audio/Plug-Ins/VST3/CHROMA.vst3`
+4. Dans Reaper : re-scanne les plug-ins. Le plugin apparaît comme **CHROMA (Studio Wiga)**.
 
 Le job *Test du moteur d'accordage* compile `dsp_test.cpp` et vérifie la précision sur des cordes synthétiques
 (D0 → E6 en mono, 11 accordages en poly). S'il échoue, le build est signalé en rouge.
@@ -32,7 +32,7 @@ Le job *Test du moteur d'accordage* compile `dsp_test.cpp` et vérifie la préci
   Par défaut : MUTE = CC 80, MODE = CC 81, accordage suivant = CC 82, précédent = CC 83, REF = CC 84.
   Program Change n = n-ième favori (ou n-ième accordage s'il n'y a pas de favoris).
 - **Custom tunings…** / **Show tunings file** : accordages perso et favoris, communs à toutes les instances
-  (`%APPDATA%\Studio Wiga\Tuna\library.xml` / `~/Library/Application Support/Studio Wiga/Tuna/library.xml`).
+  (`%APPDATA%\Studio Wiga\Chroma\library.xml` / `~/Library/Application Support/Studio Wiga/Chroma/library.xml`).
   L'accordage choisi est aussi enregistré dans le projet.
 
 ## Fonctionnement (résumé)
@@ -46,3 +46,10 @@ Le job *Test du moteur d'accordage* compile `dsp_test.cpp` et vérifie la préci
   la mesure reste juste quand les cordes sont accordées mais moins précise quand elles sont loin : finir en MONO.
 
 Polices IBM Plex Mono / Sans (licence SIL OFL, `OFL-IBM-Plex.txt`).
+
+## Versions
+- **1.1.0** — le plugin s'appelle désormais **CHROMA** (nouveau titre sur la pédale). **Supprimez l'ancien `Tuna.vst3`**
+  (même identifiant interne, conservé pour que Reaper puisse retrouver le plugin dans les projets existants ; sinon,
+  remplacez Tuna par CHROMA dans la chaîne). Les accordages perso et favoris de Tuna sont repris automatiquement. Écran redessiné seulement quand son contenu change, fond mis en cache.
+- **1.0.1** — correctif anti-gel de la fenêtre sous Windows (moteur de rendu logiciel).
+- **1.0.0** — première version (Tuna).

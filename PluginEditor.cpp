@@ -1090,8 +1090,10 @@ void TunaEditor::paintLed (Graphics& g, const art::Circle& c, Colour col, bool o
 void TunaEditor::paint (Graphics& g)
 {
     g.fillAll (Colour (13, 13, 14));
-    g.setImageResamplingQuality (Graphics::highResamplingQuality);
-    g.drawImage (background, getLocalBounds().toFloat());
+    // fond redimensionné une seule fois par taille de fenêtre (jamais à chaque paint)
+    if (bgScaled.isNull() || bgScaled.getWidth() != getWidth() || bgScaled.getHeight() != getHeight())
+        bgScaled = background.rescaled (jmax (1, getWidth()), jmax (1, getHeight()), Graphics::highResamplingQuality);
+    g.drawImageAt (bgScaled, 0, 0);
 
     const int m = modeIndex();
     const auto amber = Colour (0xffffa020);
@@ -1248,9 +1250,30 @@ void TunaEditor::timerCallback()
     if (learn >= 0) { display.flashText = "MIDI LEARN..."; display.flashUntil = now + 0.2; }
     lastLearn = learn;
 
-    // l'écran de l'accordeur est une animation continue (aiguille, stroboscope, fondus) : redessin à chaque tic.
-    // Les potards ne se redessinent que s'ils ont bougé (updateKnobAngles), les LED que si le mode / MUTE change.
-    display.repaint();
+    // l'écran n'est redessiné que si ce qu'il affiche a changé (valeurs arrondies à ce qui est visible) ;
+    // les potards seulement s'ils ont bougé (updateKnobAngles), les LED seulement si le mode / MUTE change.
+    {
+        uint64_t h = 1469598103934665603ull;
+        auto mix = [&h] (int64_t v) { h ^= (uint64_t) v; h *= 1099511628211ull; };
+        mix (modeIndex()); mix (proc.getTuningIndex()); mix (proc.library.french ? 1 : 0);
+        mix ((int) proc.apvts.getRawParameterValue ("ref")->load());
+        mix (snap.allInTune); mix (snap.monoOffTuning); mix (snap.anyStringActive); mix (snap.numStrings);
+        for (int i = 0; i < snap.numStrings; ++i)
+        {
+            const auto& st = snap.strings[i];
+            mix (st.midi); mix (st.measured); mix (st.active);
+            mix ((int64_t) std::lround (st.cents * 4.0f));
+            mix (st.active ? 0 : (int64_t) std::lround (jlimit (0.0f, 7.0f, st.age) * 8.0f));
+        }
+        mix (snap.monoMidi); mix (snap.monoActive); mix (snap.monoPrecise);
+        mix ((int64_t) std::lround (snap.monoCents * 10.0f));
+        mix ((int64_t) std::lround (snap.monoHz * 100.0f));
+        mix (snap.monoActive ? 0 : (int64_t) std::lround (jlimit (0.0f, 3.0f, snap.monoAge) * 10.0f));
+        if (modeIndex() == 2) mix ((int64_t) std::lround (display.strobePhase * 400.0f));
+        const bool flashOn = now < display.flashUntil;
+        mix (flashOn); if (flashOn) mix (display.flashText.hashCode64());
+        if (h != lastDisplaySig) { lastDisplaySig = h; display.repaint(); }
+    }
     updateKnobAngles();
 
     const int m = modeIndex();

@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.22)
 set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "")
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "")
 
-project(Tuna VERSION 1.0.1 LANGUAGES C CXX)
+project(Chroma VERSION 1.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -29,45 +29,45 @@ else()
 endif()
 
 # images et polices intégrées au plugin (rien à installer à côté)
-juce_add_binary_data(TunaAssets SOURCES
+juce_add_binary_data(ChromaAssets SOURCES
   background.png
   IBMPlexMono-SemiBold.ttf
   IBMPlexSans-SemiBold.ttf)
 
-juce_add_plugin(Tuna
+juce_add_plugin(Chroma
   COMPANY_NAME               "Studio Wiga"
   PLUGIN_MANUFACTURER_CODE   Wiga
-  PLUGIN_CODE                Tuna
+  PLUGIN_CODE                Tuna   # identifiant conservé depuis Tuna (projets Reaper existants)
   FORMATS                    ${TUNA_FORMATS}
   VST3_CATEGORIES            Fx Analyzer
-  BUNDLE_ID                  com.studiowiga.tuna
+  BUNDLE_ID                  com.studiowiga.chroma
   IS_SYNTH                   FALSE
   NEEDS_MIDI_INPUT           TRUE
   NEEDS_MIDI_OUTPUT          FALSE
   IS_MIDI_EFFECT             FALSE
   EDITOR_WANTS_KEYBOARD_FOCUS FALSE
-  PRODUCT_NAME               "Tuna"
+  PRODUCT_NAME               "CHROMA"
   COPY_PLUGIN_AFTER_BUILD    FALSE)
 
-target_sources(Tuna PRIVATE
+target_sources(Chroma PRIVATE
   PluginProcessor.cpp
   PluginEditor.cpp)
 
 # sources en UTF-8 (accents des noms d'accordages)
 if(MSVC)
-  target_compile_options(Tuna PRIVATE /utf-8)
+  target_compile_options(Chroma PRIVATE /utf-8)
 endif()
 
-target_compile_definitions(Tuna PUBLIC
+target_compile_definitions(Chroma PUBLIC
   JUCE_WEB_BROWSER=0
   JUCE_USE_CURL=0
   JUCE_VST3_CAN_REPLACE_VST2=0
   JUCE_DISPLAY_SPLASH_SCREEN=0
   JUCE_REPORT_APP_USAGE=0)
 
-target_link_libraries(Tuna
+target_link_libraries(Chroma
   PRIVATE
-    TunaAssets
+    ChromaAssets
     juce::juce_audio_utils
   PUBLIC
     juce::juce_recommended_config_flags

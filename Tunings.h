@@ -1,5 +1,5 @@
 #pragma once
-// Tuna (Studio Wiga) — accordages d'usine + utilitaires de notes.
+// CHROMA (Studio Wiga) — accordages d'usine + utilitaires de notes.
 // Les accordages sont écrits du grave vers l'aigu (corde la plus grave en premier).
 #include <string>
 #include <vector>

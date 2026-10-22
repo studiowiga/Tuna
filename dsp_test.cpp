@@ -1,4 +1,4 @@
-// Tuna — banc de test du moteur d'accordage (hors JUCE).
+// CHROMA — banc de test du moteur d'accordage (hors JUCE).
 // g++ -O2 -std=c++17 -I. dsp_test.cpp -o dsp_test && ./dsp_test
 // Synthèse de cordes réalistes (inharmonicité, partiels qui décroissent, fondamentale faible,
 // glissement de hauteur à l'attaque, bruit de médiator, bruit de fond) puis mesure de l'erreur.

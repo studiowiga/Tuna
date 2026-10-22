@@ -210,6 +210,8 @@ private:
     void useSoftwareRenderer();
     void updateTimerRate();
     int timerHz = 0;              // cadence actuelle du timer de l'éditeur (30 ou 60 en STROBE)
+    uint64_t lastDisplaySig = 0;  // empreinte de ce que montre l'écran (redessin seulement si elle change)
+    juce::Image bgScaled;         // fond mis à l'échelle de la fenêtre (cache)
 public:
     void updateKnobAngles();
 private:

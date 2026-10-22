@@ -1,8 +1,8 @@
 #pragma once
-// Tuna — bibliothèque d'accordages : usine + accordages perso + favoris.
+// CHROMA — bibliothèque d'accordages : usine + accordages perso + favoris.
 // Les accordages perso et les favoris sont communs à toutes les instances du plugin
-// (fichier XML dans le dossier de données utilisateur : %APPDATA%\Studio Wiga\Tuna sous Windows,
-//  ~/Library/Application Support/Studio Wiga/Tuna sous macOS). À utiliser sur le thread message.
+// (fichier XML dans le dossier de données utilisateur : %APPDATA%\Studio Wiga\Chroma sous Windows,
+//  ~/Library/Application Support/Studio Wiga/Chroma sous macOS). À utiliser sur le thread message.
 #include <juce_core/juce_core.h>
 #include <juce_data_structures/juce_data_structures.h>
 #include "Tunings.h"
@@ -85,7 +85,7 @@ public:
     static juce::File file()
     {
         return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                   .getChildFile ("Studio Wiga").getChildFile ("Tuna").getChildFile ("library.xml");
+                   .getChildFile ("Studio Wiga").getChildFile ("Chroma").getChildFile ("library.xml");
     }
 
 private:
@@ -105,7 +105,15 @@ private:
 
     void load()
     {
-        auto xml = juce::XmlDocument::parse (file());
+        // reprise automatique des accordages perso / favoris de l'ancienne version (Tuna)
+        const auto f = file();
+        const auto old = f.getParentDirectory().getParentDirectory().getChildFile ("Tuna").getChildFile ("library.xml");
+        if (! f.existsAsFile() && old.existsAsFile())
+        {
+            f.getParentDirectory().createDirectory();
+            old.copyFileTo (f);
+        }
+        auto xml = juce::XmlDocument::parse (f);
         if (xml == nullptr) return;
         french = xml->getStringAttribute ("lang", "en") == "fr";
         for (auto* e : xml->getChildWithTagNameIterator ("tuning"))
