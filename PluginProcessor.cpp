@@ -7,7 +7,7 @@ static juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     AudioProcessorValueTreeState::ParameterLayout l;
     const int v = 1;
     l.add (std::make_unique<AudioParameterBool>   (ParameterID { "mute", v }, "Mute", false));
-    l.add (std::make_unique<AudioParameterChoice> (ParameterID { "mode", v }, "Mode", StringArray { "Mono", "Poly", "Strobe" }, 1));
+    l.add (std::make_unique<AudioParameterChoice> (ParameterID { "mode", v }, "Mode", StringArray { "Mono", "Poly", "Strobe" }, 0));   // MONO par défaut
     l.add (std::make_unique<AudioParameterInt>    (ParameterID { "ref", v }, "Reference A4", 430, 450, 440,
                                                    AudioParameterIntAttributes().withLabel ("Hz")));
     StringArray chans { "Omni" };

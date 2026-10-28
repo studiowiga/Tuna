@@ -19,7 +19,7 @@ Le job *Test du moteur d'accordage* compile `dsp_test.cpp` et vérifie la préci
 ## Commandes
 | Commande | Rôle |
 |---|---|
-| **MODE** | MONO → POLY → STROBE (clic = mode suivant, ou tourner). LED au-dessus = mode actif |
+| **MODE** | MONO (par défaut) → POLY → STROBE (clic = mode suivant, ou tourner). LED au-dessus = mode actif |
 | **TUNING** | tourner = accordage suivant / précédent (comme les flèches ◄ ►) · clic = ouvre le menu des accordages |
 | **REF** | La de référence 430 → 450 Hz · double-clic = 440 Hz |
 | Écran : nom de l'accordage | clic = menu déroulant (ALL / ★ FAVORITES / ✎ CUSTOM), en anglais par défaut ; le petit bouton **FR** de l'en-tête du menu passe les menus de l'écran en français (**EN** pour revenir), choix mémorisé pour toutes les instances. Le nom passe au **vert** quand toutes les cordes sont justes |
@@ -48,6 +48,7 @@ Le job *Test du moteur d'accordage* compile `dsp_test.cpp` et vérifie la préci
 Polices IBM Plex Mono / Sans (licence SIL OFL, `OFL-IBM-Plex.txt`).
 
 ## Versions
+- **1.1.2** — le plugin s'ouvre en mode **MONO** par défaut (au lieu de POLY). Les projets déjà enregistrés gardent leur mode.
 - **1.1.1** — nom du plugin dans le DAW : **Chroma (Studio Wiga)** (fichier `Chroma.vst3`) ; le titre de la pédale reste CHROMA. Si vous aviez installé `CHROMA.vst3` (1.1.0), supprimez-le.
 - **1.1.0** — le plugin s'appelle désormais **CHROMA** (nouveau titre sur la pédale). **Supprimez l'ancien `Tuna.vst3`**
   (même identifiant interne, conservé pour que Reaper puisse retrouver le plugin dans les projets existants ; sinon,
