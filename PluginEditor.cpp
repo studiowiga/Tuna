@@ -340,22 +340,37 @@ void TunaDisplay::paintMono (Graphics& g, const tuna::Snapshot& sn)
     if (acc.isNotEmpty()) g.drawText (acc, Rectangle<float> (x + wL + 6, 128, wA + 6, 90), Justification::centredLeft);
     g.drawText (oct, Rectangle<float> (x + wL + 6, 240, wO + 6, 90), Justification::centredLeft);
 
-    // barre +/- 50 cents (41 segments de 2,5 cents)
+    // barre +/- 50 cents : graduations fixes, repère central blanc (vert quand c'est juste)
+    // et curseur jaune de même taille qui glisse avec la note jouée
     const int segs = 41, mid = 20;
     const float x0 = 64.0f, x1 = kSW - 64.0f, pitch = (x1 - x0) / segs, segW = pitch * 0.6f;
-    const int lit = has ? jlimit (0, segs - 1, mid + (int) std::lround (c / 2.5f)) : -1;
+    const float cy = 392.0f;
     for (int k = 0; k < segs; ++k)
     {
-        const float hh = k == mid ? 62.0f : (k % 4 == 0 ? 44.0f : 36.0f);
-        Rectangle<float> r (x0 + pitch * k + (pitch - segW) * 0.5f, 392.0f - hh * 0.5f, segW, hh);
-        if (k == lit) drawSegment (g, r, col, true);
-        else if (lit >= 0 && ((k > mid && k < lit) || (k < mid && k > lit))) drawSegment (g, r, tunacol::amber.withAlpha (0.3f * alpha), false);
-        else drawSegment (g, r, k == mid ? tunacol::greenDim : tunacol::amberDim, false);
+        if (k == mid) continue;
+        const float hh = (k - mid) % 4 == 0 ? 52.0f : 36.0f;
+        drawSegment (g, Rectangle<float> (x0 + pitch * k + (pitch - segW) * 0.5f, cy - hh * 0.5f, segW, hh), tunacol::amberDim, false);
+    }
+    const float markW = segW * 1.1f, markH = 118.0f;      // repère central
+    const float curW = segW * 0.8f, curH = 88.0f;         // curseur jaune, plus petit que le repère
+    const float centreX = x0 + pitch * (mid + 0.5f);
+    const Rectangle<float> centre (centreX - markW * 0.5f, cy - markH * 0.5f, markW, markH);
+    if (inTune) drawSegment (g, centre, tunacol::green.withAlpha (alpha), true);
+    else
+    {
+        g.setColour (Colours::white.withAlpha (0.10f)); g.fillRoundedRectangle (centre.expanded (4, 3), 4.0f);
+        g.setColour (Colours::white.withAlpha (has ? 0.95f : 0.55f)); g.fillRoundedRectangle (centre, 2.5f);
+        if (has)
+        {
+            const float cc = jlimit (-50.0f, 50.0f, c);
+            const float cx = centreX + cc / 2.5f * pitch;
+            drawSegment (g, Rectangle<float> (cx - curW * 0.5f, cy - curH * 0.5f, curW, curH), tunacol::amber.withAlpha (alpha), true);
+        }
     }
     g.setFont (ed.fonts.mono (26.0f));
     g.setColour (tunacol::grey.withAlpha (0.7f));
-    g.drawText ("-50", Rectangle<float> (x0 - 4, 428, 100, 32), Justification::centredLeft);
-    g.drawText ("+50", Rectangle<float> (x1 - 96, 428, 100, 32), Justification::centredRight);
+    g.drawText ("-50", Rectangle<float> (x0 - 4, 448, 100, 32), Justification::centredLeft);
+    g.drawText ("+50", Rectangle<float> (x1 - 96, 448, 100, 32), Justification::centredRight);
 
     // valeurs
     g.setFont (ed.fonts.mono (56.0f));
