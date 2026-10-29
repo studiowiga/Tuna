@@ -27,7 +27,7 @@ Le job *Test du moteur d'accordage* compile `dsp_test.cpp` et vérifie la préci
 | Footswitch **TUNE / MUTE** | coupe la sortie (LED rouge). L'accordeur fonctionne toujours, coupé ou non |
 
 ## Clic droit (n'importe où)
-- **Plugin size** : défaut (493 px, taille minimale, comme Freeze Shimmer), 60 %, 75 %, 100 % — on peut aussi tirer le coin.
+- **Plugin size** : 60 % (default, taille minimale), 75 %, 100 % — on peut aussi tirer le coin.
 - **MIDI** : canal, *Learn* pour chaque fonction, pédale à verrouillage ou momentanée.
   Par défaut : MUTE = CC 80, MODE = CC 81, accordage suivant = CC 82, précédent = CC 83, REF = CC 84.
   Program Change n = n-ième favori (ou n-ième accordage s'il n'y a pas de favoris).
@@ -45,6 +45,8 @@ Le job *Test du moteur d'accordage* compile `dsp_test.cpp` et vérifie la préci
 - **POLY** : une démodulation par corde de l'accordage. Pour chaque corde, le partiel mesuré est le plus bas qui
   ne tombe sur aucun partiel d'une autre corde ; si toutes ses harmoniques sont partagées (cordes à l'octave dans les open tunings),
   la mesure reste juste quand les cordes sont accordées mais moins précise quand elles sont loin : finir en MONO.
+
+Notice d'utilisation bilingue (anglais puis français) : `docs/CHROMA_Manual_EN-FR_v1.3.0.pdf`.
 
 Polices IBM Plex Mono / Sans (licence SIL OFL, `OFL-IBM-Plex.txt`).
 
