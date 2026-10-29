@@ -10,7 +10,7 @@ constexpr int heightDefault = 493, height60 = 592, height75 = 740, height100 = 9
 }
 
 class TunaProcessor : public juce::AudioProcessor,
-                      private juce::AsyncUpdater
+                      private juce::Timer
 {
 public:
     TunaProcessor();
@@ -59,9 +59,15 @@ public:
     juce::AudioProcessorValueTreeState apvts;
 
 private:
-    void handleAsyncUpdate() override;
+    void timerCallback() override;
     void handleMidi (const juce::MidiBuffer& midi);
-    void setParam01 (const char* id, float v01);
+    void setParam01 (const char* id, float v01);   // thread audio : met la valeur en file (anti-gel v2)
+
+    // anti-gel v2 : valeurs demandées par le MIDI (thread audio), transmises à l'hôte par le timer (thread message)
+    static constexpr int numQueued = 3;
+    static const char* queuedId (int i);
+    std::atomic<float> pendingValue[numQueued];
+    std::atomic<bool>  pendingSet[numQueued];
 
     // thread d'analyse : vide la FIFO alimentée par le thread audio et fait tourner le moteur
     class AnalysisThread : public juce::Thread
@@ -79,7 +85,7 @@ private:
     std::vector<float> fifoBuf = std::vector<float> (1 << 17);
     std::vector<float> monoTmp;
 
-    std::atomic<float>* pMute = nullptr, *pMode = nullptr, *pRef = nullptr, *pMidiChan = nullptr;
+    std::atomic<float>* pMute = nullptr, *pMode = nullptr, *pRef = nullptr, *pMidiChan = nullptr, *pMomentary = nullptr;
     float gain = 1.0f;
     float lastRef = 0.0f;
 

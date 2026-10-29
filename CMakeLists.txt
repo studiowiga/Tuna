@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.22)
 set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "")
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "")
 
-project(Chroma VERSION 1.1.3 LANGUAGES C CXX)
+project(Chroma VERSION 1.2.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -17,7 +17,7 @@ else()
   include(FetchContent)
   FetchContent_Declare(JUCE
     GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
-    GIT_TAG        8.0.12
+    GIT_TAG        8.0.15
     GIT_SHALLOW    ON)
   FetchContent_MakeAvailable(JUCE)
 endif()

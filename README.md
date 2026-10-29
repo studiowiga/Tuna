@@ -48,6 +48,7 @@ Le job *Test du moteur d'accordage* compile `dsp_test.cpp` et vérifie la préci
 Polices IBM Plex Mono / Sans (licence SIL OFL, `OFL-IBM-Plex.txt`).
 
 ## Versions
+- **1.2.0** — v1.2.0 : anti-gel v2 (JUCE 8.0.15, caches refaits par le timer, chien de garde, aucun appel à l'hôte depuis le thread audio).
 - **1.1.3** — affichage MONO : repère central blanc fin (vert quand c'est juste) et curseur jaune plus petit qui glisse en continu avec la note jouée.
 - **1.1.2** — le plugin s'ouvre en mode **MONO** par défaut (au lieu de POLY). Les projets déjà enregistrés gardent leur mode.
 - **1.1.1** — nom du plugin dans le DAW : **Chroma (Studio Wiga)** (fichier `Chroma.vst3`) ; le titre de la pédale reste CHROMA. Si vous aviez installé `CHROMA.vst3` (1.1.0), supprimez-le.

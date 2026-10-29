@@ -995,8 +995,10 @@ TunaEditor::TunaEditor (TunaProcessor& p)
     setResizeLimits (roundToInt (tunaui::heightDefault * aspect), tunaui::heightDefault,
                      roundToInt (tunaui::heightMax * aspect), tunaui::heightMax);
     getConstrainer()->setFixedAspectRatio (aspect);
+    setOpaque (true);                      // anti-gel : l'hôte ne redessine jamais ce qui est derrière la fenêtre
     const int h0 = jlimit (tunaui::heightDefault, tunaui::heightMax, proc.uiHeight.load());
     setSize (roundToInt (h0 * aspect), h0);
+    rebuildCaches();
 
     snap = proc.getSnapshot();
     updateKnobAngles();
@@ -1030,10 +1032,21 @@ Rectangle<int> TunaEditor::menuBounds() const
 // Anti-gel de la fenêtre (Windows) : JUCE 8 dessine par défaut avec Direct2D (carte graphique).
 // Avec certains pilotes (Intel notamment) la fenêtre du plugin cesse de se rafraîchir alors que
 // le DAW continue de tourner. Le moteur logiciel est stable partout et largement assez rapide ici.
+//
+// Anti-gel v2 (Studio Wiga) :
+//  1. moteur de rendu logiciel forcé sur Windows, appliqué à chaque nouvelle fenêtre hôte (peer)
+//     et revérifié toutes les secondes, jamais en boucle ;
+//  2. aucun calcul lourd dans paint() : le fond mis à l'échelle est refait par le timer seulement,
+//     après stabilisation de la taille ou quand l'échelle d'affichage change (au plus toutes les 250 ms) ;
+//  3. chien de garde : si un redessin demandé n'est pas arrivé au bout de 1,5 s alors que la fenêtre
+//     est visible, le moteur de rendu est réappliqué et toute la fenêtre est redessinée ;
+//  4. côté audio : aucun appel à l'hôte depuis le thread audio (voir PluginProcessor).
 void TunaEditor::useSoftwareRenderer()
 {
+    auto* peer = getPeer();
+    if (peer != lastPeer) { lastPeer = peer; repaint(); }
    #if JUCE_WINDOWS
-    if (auto* peer = getPeer())
+    if (peer != nullptr)
     {
         int sw = peer->getAvailableRenderingEngines().indexOf ("Software Renderer");
         if (sw < 0) sw = 0;
@@ -1043,9 +1056,32 @@ void TunaEditor::useSoftwareRenderer()
    #endif
 }
 
-void TunaEditor::parentHierarchyChanged()
+void TunaEditor::parentHierarchyChanged() { useSoftwareRenderer(); }
+void TunaEditor::visibilityChanged()      { useSoftwareRenderer(); if (isShowing()) repaint(); }
+
+void TunaEditor::askRepaint (Rectangle<int> r)
 {
-    useSoftwareRenderer();
+    if (repaintAskedMs <= 0.0) repaintAskedMs = Time::getMillisecondCounterHiRes();
+    repaint (r);
+}
+
+float TunaEditor::physicalScale() const
+{
+    return jlimit (1.0f, 4.0f, (float) Component::getApproximateScaleFactorForComponent (this));
+}
+
+// fond déjà à la taille de la fenêtre (pixels physiques) : appelé par le constructeur et le timer, jamais par paint()
+void TunaEditor::rebuildCaches (float sc)
+{
+    if (sc <= 0.0f) sc = cacheScale > 0.0f ? cacheScale : physicalScale();
+    const int w = getWidth(), h = getHeight();
+    if (w <= 0 || h <= 0) return;
+    if (w == cacheW && h == cacheH && std::abs (sc - cacheScale) < 0.01f && bgScaled.isValid()) return;
+
+    cacheW = w; cacheH = h; cacheScale = sc;
+    const int pw = roundToInt ((float) w * sc), ph = roundToInt ((float) h * sc);
+    bgScaled = (pw >= background.getWidth()) ? background : background.rescaled (pw, ph, Graphics::highResamplingQuality);
+    repaint();
 }
 
 // Cadence de l'affichage : 30 i/s suffisent en MONO / POLY (le moteur publie ses mesures 25 fois
@@ -1060,11 +1096,9 @@ void TunaEditor::updateTimerRate()
 
 void TunaEditor::resized()
 {
-    const int minW = roundToInt (tunaui::heightDefault * (double) art::W / (double) art::H);
-    // tolérance de 2 px : avec la mise à l'échelle Windows (125 %, 150 %…) l'hôte arrondit les tailles ;
-    // sans marge, les deux se renvoient la fenêtre en boucle
-    if (getHeight() < tunaui::heightDefault - 2 || getWidth() < minW - 2) { setSize (minW, tunaui::heightDefault); return; }
-    proc.uiHeight.store (getHeight());
+    // anti-gel : jamais de setSize ici (mise à l'échelle Windows 125 / 150 % : l'hôte arrondit les tailles) ;
+    // les limites du constrainer suffisent, sinon boucle de redimensionnement avec l'hôte
+    proc.uiHeight.store (jlimit (tunaui::heightDefault, tunaui::heightMax, getHeight()));
 
     display.setBounds (scaled (art::screen));
     modeKnob.setBounds (scaled (art::modeKnob));
@@ -1076,6 +1110,7 @@ void TunaEditor::resized()
     dismiss.setBounds (getLocalBounds());
     menu.setBounds (menuBounds());
     tuningEditor.setBounds (menuBounds());
+    resizeSettle = 4;              // le fond sera refait par le timer quand la taille ne bouge plus
 }
 
 void TunaEditor::setWindowHeight (int h)
@@ -1104,11 +1139,14 @@ void TunaEditor::paintLed (Graphics& g, const art::Circle& c, Colour col, bool o
 
 void TunaEditor::paint (Graphics& g)
 {
+    lastPaintMs = Time::getMillisecondCounterHiRes();
+    repaintAskedMs = 0.0;
     g.fillAll (Colour (13, 13, 14));
-    // fond redimensionné une seule fois par taille de fenêtre (jamais à chaque paint)
-    if (bgScaled.isNull() || bgScaled.getWidth() != getWidth() || bgScaled.getHeight() != getHeight())
-        bgScaled = background.rescaled (jmax (1, getWidth()), jmax (1, getHeight()), Graphics::highResamplingQuality);
-    g.drawImageAt (bgScaled, 0, 0);
+    // anti-gel : aucun rescale ici, on dessine le cache existant (ou l'original en attendant le timer)
+    const Image& bg = bgScaled.isValid() ? bgScaled : background;
+    g.setImageResamplingQuality (&bg == &background ? Graphics::highResamplingQuality : Graphics::lowResamplingQuality);
+    if (bg.isValid())
+        g.drawImage (bg, getLocalBounds().toFloat());
 
     const int m = modeIndex();
     const auto amber = Colour (0xffffa020);
@@ -1241,9 +1279,9 @@ void TunaEditor::updateKnobAngles()
     const float mA = (modeIndex() - 1) * 40.0f * deg;
     const float ref = proc.apvts.getRawParameterValue ("ref")->load();
     const float rA = jmap (ref, 430.0f, 450.0f, -135.0f, 135.0f) * deg;
-    if (std::abs (modeKnob.angle - mA) > 1e-4f) { modeKnob.angle = mA; modeKnob.repaint(); }
-    if (std::abs (refKnob.angle - rA) > 1e-4f) { refKnob.angle = rA; refKnob.repaint(); }
-    if (std::abs (tuningKnob.angle - tuningAngle) > 1e-4f) { tuningKnob.angle = tuningAngle; tuningKnob.repaint(); }
+    if (std::abs (modeKnob.angle - mA) > 1e-4f) { modeKnob.angle = mA; askRepaint (modeKnob.getBounds()); }
+    if (std::abs (refKnob.angle - rA) > 1e-4f) { refKnob.angle = rA; askRepaint (refKnob.getBounds()); }
+    if (std::abs (tuningKnob.angle - tuningAngle) > 1e-4f) { tuningKnob.angle = tuningAngle; askRepaint (tuningKnob.getBounds()); }
 }
 
 void TunaEditor::timerCallback()
@@ -1253,7 +1291,27 @@ void TunaEditor::timerCallback()
     lastTime = now;
     snap = proc.getSnapshot();
 
-    useSoftwareRenderer();   // au cas où la fenêtre a été recréée par l'hôte (changement d'écran, d'échelle…)
+    // moteur logiciel : seulement si la fenêtre hôte a changé, ou au plus une fois par seconde
+    const double nowMs = now * 1000.0;
+    if (getPeer() != lastPeer || nowMs - lastRendererCheckMs > 1000.0) { lastRendererCheckMs = nowMs; useSoftwareRenderer(); }
+
+    // caches : reconstruits ici seulement (jamais dans paint)
+    if (resizeSettle > 0 && --resizeSettle == 0) rebuildCaches();
+    else if (resizeSettle == 0 && nowMs - lastScaleCheckMs > 250.0)
+    {
+        lastScaleCheckMs = nowMs;
+        const float sc = physicalScale();
+        if (std::abs (sc - cacheScale) > 0.01f) rebuildCaches (sc);
+    }
+
+    // chien de garde : un redessin demandé n'arrive pas -> on relance le moteur de rendu et on redessine tout
+    if (repaintAskedMs > 0.0 && isShowing() && nowMs - repaintAskedMs > 1500.0 && lastPaintMs < repaintAskedMs)
+    {
+        repaintAskedMs = 0.0;
+        lastPeer = nullptr;
+        useSoftwareRenderer();
+        repaint();
+    }
 
     // stroboscope : 1 cent = un quart de période par seconde (bande du haut)
     if (snap.monoMidi >= 0 && (snap.monoActive || snap.monoAge < 0.3f))
@@ -1287,12 +1345,12 @@ void TunaEditor::timerCallback()
         if (modeIndex() == 2) mix ((int64_t) std::lround (display.strobePhase * 400.0f));
         const bool flashOn = now < display.flashUntil;
         mix (flashOn); if (flashOn) mix (display.flashText.hashCode64());
-        if (h != lastDisplaySig) { lastDisplaySig = h; display.repaint(); }
+        if (h != lastDisplaySig) { lastDisplaySig = h; askRepaint (display.getBounds()); }
     }
     updateKnobAngles();
 
     const int m = modeIndex();
     const bool mu = isMuted();
-    if (m != lastMode || mu != lastMute) { lastMode = m; lastMute = mu; repaint(); }
+    if (m != lastMode || mu != lastMute) { lastMode = m; lastMute = mu; askRepaint (getLocalBounds()); }
     updateTimerRate();
 }

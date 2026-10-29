@@ -207,11 +207,21 @@ public:
 
 private:
     void timerCallback() override;
+    void visibilityChanged() override;
     void useSoftwareRenderer();
     void updateTimerRate();
     int timerHz = 0;              // cadence actuelle du timer de l'éditeur (30 ou 60 en STROBE)
     uint64_t lastDisplaySig = 0;  // empreinte de ce que montre l'écran (redessin seulement si elle change)
-    juce::Image bgScaled;         // fond mis à l'échelle de la fenêtre (cache)
+    juce::Image bgScaled;         // fond mis à l'échelle de la fenêtre (cache, refait par le timer seulement)
+    int cacheW = 0, cacheH = 0;
+    float cacheScale = 0.0f;
+    int resizeSettle = 0;
+    void rebuildCaches (float scale = 0.0f);
+    float physicalScale() const;
+    // anti-gel v2 : suivi de la fenêtre hôte, de l'échelle et des redessins
+    void* lastPeer = nullptr;
+    double lastPaintMs = 0.0, repaintAskedMs = 0.0, lastScaleCheckMs = 0.0, lastRendererCheckMs = 0.0;
+    void askRepaint (juce::Rectangle<int> r);
 public:
     void updateKnobAngles();
 private:

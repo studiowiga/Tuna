@@ -26,13 +26,16 @@ TunaProcessor::TunaProcessor()
     pMode = apvts.getRawParameterValue ("mode");
     pRef = apvts.getRawParameterValue ("ref");
     pMidiChan = apvts.getRawParameterValue ("midichan");
+    pMomentary = apvts.getRawParameterValue ("ccmomentary");
+    for (int i = 0; i < numQueued; ++i) { pendingValue[i] = 0.0f; pendingSet[i] = false; }
     engine.prepare (48000.0);
     refreshEngineTuning();
+    startTimerHz (60);
 }
 
 TunaProcessor::~TunaProcessor()
 {
-    cancelPendingUpdate();
+    stopTimer();
     analysis.stopThread (2000);
 }
 
@@ -82,15 +85,30 @@ void TunaProcessor::AnalysisThread::run()
 }
 
 //==============================================================================
+// Anti-gel v2 (Studio Wiga) : jamais d'appel à l'hôte (setValueNotifyingHost, triggerAsyncUpdate) ni
+// d'allocation depuis le thread audio. Le MIDI met la valeur en file ; le timer du processeur (60 Hz,
+// thread message) la transmet au DAW et à la fenêtre, et traite les changements d'accordage demandés.
+const char* TunaProcessor::queuedId (int i)
+{
+    static const char* ids[numQueued] = { "mute", "mode", "ref" };
+    return ids[juce::jlimit (0, numQueued - 1, i)];
+}
+
 void TunaProcessor::setParam01 (const char* id, float v01)
 {
-    if (auto* p = apvts.getParameter (id)) p->setValueNotifyingHost (juce::jlimit (0.0f, 1.0f, v01));
+    for (int i = 0; i < numQueued; ++i)
+        if (std::strcmp (id, queuedId (i)) == 0)
+        {
+            pendingValue[i].store (juce::jlimit (0.0f, 1.0f, v01), std::memory_order_relaxed);
+            pendingSet[i].store (true, std::memory_order_release);
+            return;
+        }
 }
 
 void TunaProcessor::handleMidi (const juce::MidiBuffer& midi)
 {
     const int chanSel = (int) pMidiChan->load();
-    const bool momentary = apvts.getRawParameterValue ("ccmomentary")->load() > 0.5f;
+    const bool momentary = pMomentary->load (std::memory_order_relaxed) > 0.5f;
     for (const auto meta : midi)
     {
         const auto m = meta.getMessage();
@@ -99,7 +117,6 @@ void TunaProcessor::handleMidi (const juce::MidiBuffer& midi)
         if (m.isProgramChange())
         {
             pendingProgram.store (m.getProgramChangeNumber());
-            triggerAsyncUpdate();
             continue;
         }
         if (! m.isController()) continue;
@@ -118,14 +135,22 @@ void TunaProcessor::handleMidi (const juce::MidiBuffer& midi)
         if (cc == ccMute.load())
         {
             const bool down = val >= 64;
-            if (momentary) { if (down && ! muteCcDown) setParam01 ("mute", pMute->load() > 0.5f ? 0.0f : 1.0f); }
+            if (momentary)
+            {
+                if (down && ! muteCcDown)
+                {
+                    // bascule : part de la valeur en file si elle existe, sinon de la valeur courante
+                    const float cur = pendingSet[0].load() ? pendingValue[0].load() : pMute->load();
+                    setParam01 ("mute", cur > 0.5f ? 0.0f : 1.0f);
+                }
+            }
             else setParam01 ("mute", down ? 1.0f : 0.0f);
             muteCcDown = down;
         }
         else if (cc == ccMode.load())  setParam01 ("mode", (float) juce::jmin (2, val / 43) / 2.0f);
         else if (cc == ccRef.load())   setParam01 ("ref", (float) val / 127.0f);
-        else if (cc == ccNext.load() && val >= 64) { pendingStep.fetch_add (1); triggerAsyncUpdate(); }
-        else if (cc == ccPrev.load() && val >= 64) { pendingStep.fetch_sub (1); triggerAsyncUpdate(); }
+        else if (cc == ccNext.load() && val >= 64) pendingStep.fetch_add (1);
+        else if (cc == ccPrev.load() && val >= 64) pendingStep.fetch_sub (1);
     }
 }
 
@@ -167,8 +192,13 @@ void TunaProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBu
 }
 
 //==============================================================================
-void TunaProcessor::handleAsyncUpdate()
+void TunaProcessor::timerCallback()
 {
+    for (int i = 0; i < numQueued; ++i)
+        if (pendingSet[i].exchange (false, std::memory_order_acquire))
+            if (auto* prm = apvts.getParameter (queuedId (i)))
+                prm->setValueNotifyingHost (pendingValue[i].load (std::memory_order_relaxed));
+
     const int prog = pendingProgram.exchange (-1);
     if (prog >= 0)
     {
