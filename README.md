@@ -31,6 +31,7 @@ Le job *Test du moteur d'accordage* compile `dsp_test.cpp` et vérifie la préci
 - **MIDI** : canal, *Learn* pour chaque fonction, pédale à verrouillage ou momentanée.
   Par défaut : MUTE = CC 80, MODE = CC 81, accordage suivant = CC 82, précédent = CC 83, REF = CC 84.
   Program Change n = n-ième favori (ou n-ième accordage s'il n'y a pas de favoris).
+  Clic droit sur une commande (MODE, TUNING et ses flèches, REF, footswitch) : « MIDI Learn » / « Clear MIDI » de cette commande.
 - **Custom tunings…** / **Show tunings file** : accordages perso et favoris, communs à toutes les instances
   (`%APPDATA%\Studio Wiga\Chroma\library.xml` / `~/Library/Application Support/Studio Wiga/Chroma/library.xml`).
   L'accordage choisi est aussi enregistré dans le projet.
@@ -59,3 +60,5 @@ Polices IBM Plex Mono / Sans (licence SIL OFL, `OFL-IBM-Plex.txt`).
 - **1.0.0** — première version (Tuna).
 
 - v1.2.1 : menu de taille de fenêtre : « 60 % (default) », 75 %, 100 % (plus de taille en pixels)
+
+- v1.3.0 : MIDI Learn au clic droit sur chaque commande (Clear MIDI, assignations sauvegardées avec le projet)

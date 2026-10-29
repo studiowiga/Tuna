@@ -203,7 +203,10 @@ public:
     void closeTuningEditor();
     void flash (const juce::String& text);
     void setWindowHeight (int h);
-    void showContextMenu();
+    void showContextMenu (int learnIdx = -1);     // learnIdx >= 0 : clic droit sur une commande (MIDI Learn en tête du menu)
+    void showContextMenuFor (juce::Component* c); // clic droit sur un potard / une flèche : MIDI Learn de cette commande
+    void addMidiLearnSection (juce::PopupMenu& m, int learnIdx);
+    bool handleMidiLearnItem (int r);             // true si r était un élément MIDI Learn
 
 private:
     void timerCallback() override;
@@ -232,7 +235,12 @@ private:
     juce::Image background;
     TunaDisplay display { *this };
     PedalKnob modeKnob { 0.29f, 0.72f }, tuningKnob { 0.42f, 0.92f }, refKnob { 0.29f, 0.72f };
-    struct Arrow : juce::Component { std::function<void()> onClick; void mouseUp (const juce::MouseEvent& e) override { if (e.mouseWasClicked() && onClick) onClick(); } };
+    struct Arrow : juce::Component
+    {
+        std::function<void()> onClick, onRight;
+        void mouseDown (const juce::MouseEvent& e) override { if (e.mods.isPopupMenu() && onRight) onRight(); }
+        void mouseUp (const juce::MouseEvent& e) override { if (! e.mods.isPopupMenu() && e.mouseWasClicked() && onClick) onClick(); }
+    };
     Arrow arrowL, arrowR;
     struct Foot : juce::Component
     {

@@ -17,6 +17,25 @@ static juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     return l;
 }
 
+//==============================================================================
+const TunaProcessor::LearnDef& TunaProcessor::learnDef (int i)
+{
+    static const LearnDef defs[numLearn] =
+    {
+        { "ccMute", "Mute footswitch", 80 },   // à accrochage ou momentané (option du menu MIDI)
+        { "ccMode", "Mode",            81 },   // 0-42 MONO, 43-85 POLY, 86-127 STROBE
+        { "ccNext", "Next tuning",     82 },   // chaque valeur >= 64 = accordage suivant
+        { "ccPrev", "Previous tuning", 83 },   // chaque valeur >= 64 = accordage précédent
+        { "ccRef",  "Reference A4",    84 },   // 0-127 -> 430-450 Hz
+    };
+    return defs[juce::jlimit (0, numLearn - 1, i)];
+}
+
+void TunaProcessor::resetMidiMap()
+{
+    for (int i = 0; i < numLearn; ++i) ccMap[i].store (learnDef (i).defaultCC);
+}
+
 TunaProcessor::TunaProcessor()
     : AudioProcessor (BusesProperties().withInput ("Input", juce::AudioChannelSet::stereo(), true)
                                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
@@ -28,6 +47,7 @@ TunaProcessor::TunaProcessor()
     pMidiChan = apvts.getRawParameterValue ("midichan");
     pMomentary = apvts.getRawParameterValue ("ccmomentary");
     for (int i = 0; i < numQueued; ++i) { pendingValue[i] = 0.0f; pendingSet[i] = false; }
+    resetMidiMap();
     engine.prepare (48000.0);
     refreshEngineTuning();
     startTimerHz (60);
@@ -123,16 +143,20 @@ void TunaProcessor::handleMidi (const juce::MidiBuffer& midi)
         const int cc = m.getControllerNumber(), val = m.getControllerValue();
         lastMidiCc.store (cc); lastMidiValue.store (val); lastMidiStamp.fetch_add (1);
 
+        // MIDI Learn : le premier CC reçu est affecté à la commande visée (il n'agit pas sur l'accordeur)
         const int learn = learnTarget.load();
-        if (learn >= 0)
+        if (learn >= 0 && learn < numLearn && cc < 120)
         {
-            std::atomic<int>* slots[5] = { &ccMute, &ccMode, &ccNext, &ccPrev, &ccRef };
-            slots[learn]->store (cc);
+            for (int j = 0; j < numLearn; ++j)
+                if (j != learn && ccMap[j].load() == cc) ccMap[j].store (-1);   // numéro déjà pris : l'autre commande est désassignée
+            ccMap[learn].store (cc);
+            if (learn == 0) muteCcDown = val >= 64;
+            lastLearned.store (learn);
             learnTarget.store (-1);
             continue;
         }
 
-        if (cc == ccMute.load())
+        if (cc == ccMap[0].load())
         {
             const bool down = val >= 64;
             if (momentary)
@@ -147,10 +171,10 @@ void TunaProcessor::handleMidi (const juce::MidiBuffer& midi)
             else setParam01 ("mute", down ? 1.0f : 0.0f);
             muteCcDown = down;
         }
-        else if (cc == ccMode.load())  setParam01 ("mode", (float) juce::jmin (2, val / 43) / 2.0f);
-        else if (cc == ccRef.load())   setParam01 ("ref", (float) val / 127.0f);
-        else if (cc == ccNext.load() && val >= 64) pendingStep.fetch_add (1);
-        else if (cc == ccPrev.load() && val >= 64) pendingStep.fetch_sub (1);
+        if (cc == ccMap[1].load()) setParam01 ("mode", (float) juce::jmin (2, val / 43) / 2.0f);
+        if (cc == ccMap[4].load()) setParam01 ("ref", (float) val / 127.0f);
+        if (cc == ccMap[2].load() && val >= 64) pendingStep.fetch_add (1);
+        if (cc == ccMap[3].load() && val >= 64) pendingStep.fetch_sub (1);
     }
 }
 
@@ -241,11 +265,8 @@ void TunaProcessor::getStateInformation (juce::MemoryBlock& dest)
     state.setProperty ("tuningNotes", juce::String (tuna::notesToString (library.get (tuningIndex).notes)), nullptr);
     state.setProperty ("tuningName", getTuningName(), nullptr);
     state.setProperty ("uiHeight", uiHeight.load(), nullptr);
-    state.setProperty ("ccMute", ccMute.load(), nullptr);
-    state.setProperty ("ccMode", ccMode.load(), nullptr);
-    state.setProperty ("ccNext", ccNext.load(), nullptr);
-    state.setProperty ("ccPrev", ccPrev.load(), nullptr);
-    state.setProperty ("ccRef", ccRef.load(), nullptr);
+    for (int i = 0; i < numLearn; ++i)
+        state.setProperty (learnDef (i).key, ccMap[i].load(), nullptr);     // -1 = non assigné
     if (auto xml = state.createXml()) copyXmlToBinary (*xml, dest);
 }
 
@@ -256,11 +277,8 @@ void TunaProcessor::setStateInformation (const void* data, int size)
     auto state = juce::ValueTree::fromXml (*xml);
     apvts.replaceState (state);
     uiHeight.store (juce::jlimit (tunaui::heightDefault, tunaui::heightMax, (int) state.getProperty ("uiHeight", tunaui::heightDefault)));
-    ccMute.store ((int) state.getProperty ("ccMute", 80));
-    ccMode.store ((int) state.getProperty ("ccMode", 81));
-    ccNext.store ((int) state.getProperty ("ccNext", 82));
-    ccPrev.store ((int) state.getProperty ("ccPrev", 83));
-    ccRef.store ((int) state.getProperty ("ccRef", 84));
+    for (int i = 0; i < numLearn; ++i)
+        ccMap[i].store (juce::jlimit (-1, 127, (int) state.getProperty (learnDef (i).key, learnDef (i).defaultCC)));
 
     const juce::String key = state.getProperty ("tuningKey").toString();
     int idx = library.indexOfKey (key);

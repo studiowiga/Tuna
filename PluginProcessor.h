@@ -51,8 +51,15 @@ public:
     tuna::Snapshot getSnapshot() const { return engine.getSnapshot(); }
 
     // ---- MIDI ----
-    std::atomic<int> ccMute { 80 }, ccMode { 81 }, ccNext { 82 }, ccPrev { 83 }, ccRef { 84 };
-    std::atomic<int> learnTarget { -1 };      // 0 = mute, 1 = mode, 2 = next, 3 = prev, 4 = ref
+    // v1.3 MIDI Learn : toutes les commandes de la façade (0 footswitch MUTE, 1 MODE, 2 TUNING suivant,
+    // 3 TUNING précédent, 4 REF) ; numéros par défaut = anciens CC 80 à 84
+    struct LearnDef { const char* key; const char* name; int defaultCC; };
+    static constexpr int numLearn = 5;
+    static const LearnDef& learnDef (int i);
+    std::atomic<int> ccMap[numLearn];         // numéro de CC de chaque commande, -1 = non assigné
+    std::atomic<int> learnTarget { -1 };      // commande en attente d'un CC (-1 = pas de learn)
+    std::atomic<int> lastLearned { -1 };      // dernière commande apprise (lue et remise à -1 par la fenêtre)
+    void resetMidiMap();
     std::atomic<int> lastMidiCc { -1 }, lastMidiValue { 0 }, lastMidiStamp { 0 };
 
     std::atomic<int> uiHeight { tunaui::heightDefault };

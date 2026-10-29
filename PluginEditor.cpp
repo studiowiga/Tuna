@@ -106,7 +106,7 @@ void PedalKnob::paint (Graphics& g)
 
 void PedalKnob::mouseDown (const MouseEvent& e)
 {
-    if (e.mods.isPopupMenu()) { if (auto* ed = findParentComponentOfClass<TunaEditor>()) ed->showContextMenu(); return; }
+    if (e.mods.isPopupMenu()) { if (auto* ed = findParentComponentOfClass<TunaEditor>()) ed->showContextMenuFor (this); return; }
     lastX = (float) e.position.x; lastY = (float) e.position.y; accum = 0; dragged = false;
 }
 
@@ -198,7 +198,8 @@ void TunaDisplay::paint (Graphics& g)
         g.drawRoundedRectangle (r, 10.0f, 2.0f);
         g.setFont (f);
         g.setColour (tunacol::amber);
-        g.drawFittedText (flashText, r.toNearestInt(), Justification::centred, 1, 0.6f);
+        // messages MIDI Learn plus longs : sur deux lignes au besoin
+        g.drawFittedText (flashText, r.toNearestInt(), Justification::centred, flashText.length() > 30 ? 2 : 1, 0.6f);
     }
 
     // reflet de la vitre
@@ -975,17 +976,19 @@ TunaEditor::TunaEditor (TunaProcessor& p)
     foot.onRight = [this]
     {
         PopupMenu m;
+        addMidiLearnSection (m, 0);
         m.addSectionHeader ("Footswitch MUTE (MIDI)");
-        m.addItem (1, "MIDI Learn (current: CC " + String (proc.ccMute.load()) + ")");
         m.addItem (2, "Latching pedal (127 = mute, 0 = on)", true, proc.apvts.getRawParameterValue ("ccmomentary")->load() < 0.5f);
         m.addItem (3, "Momentary pedal (each press toggles)", true, proc.apvts.getRawParameterValue ("ccmomentary")->load() > 0.5f);
         m.showMenuAsync (PopupMenu::Options().withMousePosition(), [this] (int r)
         {
-            if (r == 1) { proc.learnTarget.store (0); flash ("MIDI LEARN..."); }
+            if (handleMidiLearnItem (r)) return;
             if (r == 2 || r == 3)
                 if (auto* prm = proc.apvts.getParameter ("ccmomentary")) prm->setValueNotifyingHost (r == 3 ? 1.0f : 0.0f);
         });
     };
+    arrowL.onRight = [this] { showContextMenu (3); };
+    arrowR.onRight = [this] { showContextMenu (2); };
 
     dismiss.onClick = [this] { closeTuningEditor(); closeMenu(); };
 
@@ -1176,7 +1179,47 @@ void TunaEditor::mouseDown (const MouseEvent& e)
     if (e.mods.isPopupMenu()) showContextMenu();
 }
 
-void TunaEditor::showContextMenu()
+void TunaEditor::showContextMenuFor (Component* c)
+{
+    showContextMenu (c == &modeKnob ? 1 : c == &tuningKnob ? 2 : c == &refKnob ? 4 : -1);
+}
+
+void TunaEditor::addMidiLearnSection (PopupMenu& m, int learnIdx)
+{
+    if (learnIdx < 0) return;
+    const int lt = proc.learnTarget.load();
+    auto ccText = [this] (int i) { const int cc = proc.ccMap[i].load(); return cc >= 0 ? "CC " + String (cc) : String ("none"); };
+    // potard TUNING (encodeur) : ses deux sens, accordage suivant et précédent
+    const int first = learnIdx == 2 ? 2 : learnIdx, last = learnIdx == 2 ? 3 : learnIdx;
+    for (int i = first; i <= last; ++i)
+    {
+        const String name = TunaProcessor::learnDef (i).name;
+        m.addItem (1000 + i, "MIDI Learn: " + name + " (" + ccText (i) + ")", true, lt == i);
+        m.addItem (1100 + i, "Clear MIDI: " + name, proc.ccMap[i].load() >= 0);
+    }
+    if (lt >= 0) m.addItem (1200, "Cancel MIDI learn");
+    m.addSeparator();
+}
+
+bool TunaEditor::handleMidiLearnItem (int r)
+{
+    if (r >= 1000 && r < 1000 + TunaProcessor::numLearn)
+    {
+        if (proc.learnTarget.load() == r - 1000) { proc.learnTarget.store (-1); flash ("MIDI LEARN CANCELLED"); }   // re-cliquer annule
+        else proc.learnTarget.store (r - 1000);
+    }
+    else if (r >= 1100 && r < 1100 + TunaProcessor::numLearn)
+    {
+        proc.ccMap[r - 1100].store (-1);
+        flash (String (TunaProcessor::learnDef (r - 1100).name).toUpperCase() + " : MIDI CLEARED");
+    }
+    else if (r == 1200) { proc.learnTarget.store (-1); flash ("MIDI LEARN CANCELLED"); }
+    else if (r == 1201) { proc.learnTarget.store (-1); proc.resetMidiMap(); flash ("CC 80-84"); }
+    else return false;
+    return true;
+}
+
+void TunaEditor::showContextMenu (int learnIdx)
 {
     PopupMenu size;
     const int h = getHeight();
@@ -1190,12 +1233,14 @@ void TunaEditor::showContextMenu()
     for (int c = 1; c <= 16; ++c) chan.addItem (300 + c, String (c), true, ch == c);
     midi.addSubMenu ("Channel", chan);
     midi.addSeparator();
-    midi.addItem (201, "Learn: Mute footswitch (CC " + String (proc.ccMute.load()) + ")");
-    midi.addItem (202, "Learn: Mode (CC " + String (proc.ccMode.load()) + ")");
-    midi.addItem (203, "Learn: Next tuning (CC " + String (proc.ccNext.load()) + ")");
-    midi.addItem (204, "Learn: Previous tuning (CC " + String (proc.ccPrev.load()) + ")");
-    midi.addItem (205, "Learn: Reference A4 (CC " + String (proc.ccRef.load()) + ")");
-    midi.addItem (206, "Reset MIDI assignments (CC 80-84)");
+    for (int i = 0; i < TunaProcessor::numLearn; ++i)
+    {
+        const int cc = proc.ccMap[i].load();
+        midi.addItem (1000 + i, "Learn: " + String (TunaProcessor::learnDef (i).name) + " (" + (cc >= 0 ? "CC " + String (cc) : String ("none")) + ")",
+                      true, proc.learnTarget.load() == i);
+    }
+    if (proc.learnTarget.load() >= 0) midi.addItem (1200, "Cancel MIDI learn");
+    midi.addItem (1201, "Reset MIDI to defaults (CC 80-84)");
     midi.addSeparator();
     const bool mom = proc.apvts.getRawParameterValue ("ccmomentary")->load() > 0.5f;
     midi.addItem (210, "Footswitch: latching pedal", true, ! mom);
@@ -1203,6 +1248,7 @@ void TunaEditor::showContextMenu()
     midi.addItem (-1, "Program Change n = favourite n (or tuning n)", false, false);
 
     PopupMenu m;
+    addMidiLearnSection (m, learnIdx);
     m.addSubMenu ("Plugin size", size);
     m.addSubMenu ("MIDI", midi);
     m.addItem (401, "Custom tunings...");
@@ -1214,8 +1260,7 @@ void TunaEditor::showContextMenu()
         else if (r == 102) setWindowHeight (tunaui::height60);
         else if (r == 103) setWindowHeight (tunaui::height75);
         else if (r == 104) setWindowHeight (tunaui::height100);
-        else if (r >= 201 && r <= 205) { proc.learnTarget.store (r - 201); flash ("MIDI LEARN..."); }
-        else if (r == 206) { proc.ccMute = 80; proc.ccMode = 81; proc.ccNext = 82; proc.ccPrev = 83; proc.ccRef = 84; flash ("CC 80-84"); }
+        else if (handleMidiLearnItem (r)) {}
         else if (r == 210 || r == 211) { if (auto* p = proc.apvts.getParameter ("ccmomentary")) p->setValueNotifyingHost (r == 211 ? 1.0f : 0.0f); }
         else if (r >= 300 && r <= 316) { if (auto* p = proc.apvts.getParameter ("midichan")) p->setValueNotifyingHost (p->convertTo0to1 ((float) (r - 300))); }
         else if (r == 401) { openMenu(); menu.tab = 2; menu.rebuild (false); }
@@ -1318,8 +1363,18 @@ void TunaEditor::timerCallback()
 
     // MIDI learn terminé ?
     const int learn = proc.learnTarget.load();
-    if (lastLearn >= 0 && learn < 0) flash ("CC " + String (proc.lastMidiCc.load()) + " OK");
-    if (learn >= 0) { display.flashText = "MIDI LEARN..."; display.flashUntil = now + 0.2; }
+    const int learned = proc.lastLearned.exchange (-1);
+    if (learned >= 0)
+    {
+        // « <Commande> = CC n » pendant 2 s
+        display.flashText = String (TunaProcessor::learnDef (learned).name) + " = CC " + String (proc.ccMap[learned].load());
+        display.flashUntil = now + 2.0;
+    }
+    else if (learn >= 0)
+    {
+        display.flashText = "MIDI LEARN: move a control for " + String (TunaProcessor::learnDef (learn).name);
+        display.flashUntil = now + 0.2;
+    }
     lastLearn = learn;
 
     // l'écran n'est redessiné que si ce qu'il affiche a changé (valeurs arrondies à ce qui est visible) ;
