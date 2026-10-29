@@ -1180,8 +1180,7 @@ void TunaEditor::showContextMenu()
 {
     PopupMenu size;
     const int h = getHeight();
-    size.addItem (101, "Default (" + String (tunaui::heightDefault) + " px)", true, std::abs (h - tunaui::heightDefault) < 8);
-    size.addItem (102, "60 %", true, std::abs (h - tunaui::height60) < 8);
+    size.addItem (101, "60 % (default)", true, std::abs (h - tunaui::heightDefault) < 8);
     size.addItem (103, "75 %", true, std::abs (h - tunaui::height75) < 8);
     size.addItem (104, "100 %", true, std::abs (h - tunaui::height100) < 8);
 

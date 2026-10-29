@@ -57,3 +57,5 @@ Polices IBM Plex Mono / Sans (licence SIL OFL, `OFL-IBM-Plex.txt`).
   remplacez Tuna par CHROMA dans la chaîne). Les accordages perso et favoris de Tuna sont repris automatiquement. Écran redessiné seulement quand son contenu change, fond mis en cache.
 - **1.0.1** — correctif anti-gel de la fenêtre sous Windows (moteur de rendu logiciel).
 - **1.0.0** — première version (Tuna).
+
+- v1.2.1 : menu de taille de fenêtre : « 60 % (default) », 75 %, 100 % (plus de taille en pixels)
